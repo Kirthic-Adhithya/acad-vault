@@ -11,6 +11,7 @@ env/
 *.db
 *.sqlite3
 
+backend/local_storage
 # Environment — NEVER commit real credentials
 .env
 
