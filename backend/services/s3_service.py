@@ -5,6 +5,7 @@ Credential strategy (boto3 chain, no branches in code):
   Local dev:  AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env  (or ~/.aws/credentials)
   EC2:        IAM role attached to the instance — boto3 picks it up automatically.
 """
+from botocore.config import Config
 import uuid
 import os
 from pathlib import Path
@@ -18,7 +19,12 @@ from backend.config import settings
 
 # Module-level client — created once, reused across requests.
 # boto3 handles credential refresh for temporary IAM-role tokens.
-_s3_client = boto3.client("s3", region_name=settings.AWS_REGION)
+_s3_client = boto3.client(
+    "s3",
+    region_name=settings.AWS_REGION,
+    endpoint_url=f"https://s3.{settings.AWS_REGION}.amazonaws.com",
+    config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+)
 
 # Local storage fallback directory
 LOCAL_STORAGE_DIR = Path(__file__).parent.parent / "local_storage"
