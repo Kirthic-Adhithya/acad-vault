@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+cryptography
+python-dotenv
+pydantic-settings
+boto3
+python-multipart
+aiofiles
