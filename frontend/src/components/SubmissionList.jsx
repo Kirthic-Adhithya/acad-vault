@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { listSubmissions, getDownloadUrl } from '../api'
 
-/* Formats ISO timestamp → readable date */
 function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric',
+  return new Date(iso).toLocaleDateString('en-US', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
   })
 }
 
@@ -14,30 +13,9 @@ function categoryBadge(category) {
     report: 'badge-report',
     certificate: 'badge-certificate',
   }[category] ?? 'badge-default'
-
-  const emoji = { assignment: '📝', report: '📊', certificate: '🏆' }[category] ?? '📄'
-  return <span className={`badge ${cls}`}>{emoji} {category}</span>
+  return <span className={`badge ${cls}`}>{category}</span>
 }
 
-/* Skeleton card shown while loading */
-function SkeletonCard() {
-  return (
-    <div className="submission-card" style={{ gap: 12, cursor: 'default' }}>
-      <div className="skeleton" style={{ height: 14, width: '60%' }} />
-      <div className="skeleton" style={{ height: 10, width: '35%' }} />
-      <div className="skeleton" style={{ height: 10, width: '80%', marginTop: 4 }} />
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <div className="skeleton" style={{ height: 32, width: 80, borderRadius: 8 }} />
-        <div className="skeleton" style={{ height: 32, width: 96, borderRadius: 8 }} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * SubmissionList — home view.
- * Fetches all submissions and renders them as interactive cards.
- */
 export default function SubmissionList({ onSelect, onUpload, onToast }) {
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -72,134 +50,80 @@ export default function SubmissionList({ onSelect, onUpload, onToast }) {
     }
   }
 
+  if (error && !loading) {
+    return (
+      <div className="panel table-empty">
+        <h3 style={{ color: 'var(--danger)', marginBottom: 8 }}>Error Loading Data</h3>
+        <p>{error}</p>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      {/* ── Hero ── */}
-      <section className="hero">
-        <div className="hero-eyebrow">
-          <span>☁️</span> AWS S3 · RDS MySQL · FastAPI
-        </div>
-        <h1>Your <span>Academic Documents</span>,<br />Secured in the Cloud</h1>
-        <p className="hero-sub">
-          Upload assignments, reports, and certificates. Files are stored privately in S3;
-          metadata lives in RDS — access controlled by IAM, not hard-coded keys.
-        </p>
-        <button id="hero-upload-btn" className="btn btn-primary btn-lg" onClick={onUpload}>
-          ✦ Upload Document
-        </button>
-
-        <div className="hero-stats">
-          <div className="stat">
-            <div className="stat-value">
-              {loading ? '—' : <><span>{submissions.length}</span></>}
-            </div>
-            <div className="stat-label">Documents</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value"><span>S3</span></div>
-            <div className="stat-label">Object Storage</div>
-          </div>
-          <div className="stat">
-            <div className="stat-value"><span>IAM</span></div>
-            <div className="stat-label">Access Control</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── List section ── */}
-      <section className="section">
-        <div className="section-header">
-          <div className="section-title">
-            <h2>All Submissions</h2>
-            {!loading && (
-              <span className="section-count">{submissions.length}</span>
+    <div className="panel">
+      <div className="flex justify-between items-center" style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-light)' }}>
+        <h2 style={{ fontSize: '1.1rem' }}>Documents</h2>
+        <button className="btn btn-primary" onClick={onUpload}>Upload Document</button>
+      </div>
+      
+      <div className="data-table-wrapper">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Document Title</th>
+              <th>Category</th>
+              <th>Upload Date</th>
+              <th>Storage</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                  Loading...
+                </td>
+              </tr>
+            ) : submissions.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="table-empty">
+                  No submissions yet. Upload a document to get started.
+                </td>
+              </tr>
+            ) : (
+              submissions.map(sub => (
+                <tr key={sub.id} onClick={() => onSelect(sub.id)} style={{ cursor: 'pointer' }}>
+                  <td style={{ color: 'var(--text-muted)' }}>#{sub.id}</td>
+                  <td style={{ fontWeight: 500 }}>{sub.title}</td>
+                  <td>{categoryBadge(sub.category)}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{formatDate(sub.uploaded_at)}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>AWS S3</td>
+                  <td style={{ textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-4" style={{ justifyContent: 'flex-end' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        onClick={() => onSelect(sub.id)}
+                        style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                      >
+                        View
+                      </button>
+                      <button 
+                        className="btn btn-secondary"
+                        onClick={e => handleDownload(e, sub.id, sub.title)}
+                        disabled={downloadingId === sub.id}
+                        style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                      >
+                        {downloadingId === sub.id ? '...' : 'Download'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-          <button id="list-upload-btn" className="btn btn-primary btn-sm" onClick={onUpload}>
-            + New Upload
-          </button>
-        </div>
-
-        {loading && (
-          <div className="submissions-grid">
-            {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
-          </div>
-        )}
-
-        {!loading && error && (
-          <div className="empty-state">
-            <div className="empty-icon">⚠️</div>
-            <h3>Could not load submissions</h3>
-            <p className="text-muted">{error}</p>
-          </div>
-        )}
-
-        {!loading && !error && submissions.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">📭</div>
-            <h3>No submissions yet</h3>
-            <p>Upload your first document to get started.</p>
-            <button
-              className="btn btn-primary mt-4"
-              onClick={onUpload}
-              id="empty-upload-btn"
-            >
-              + Upload Document
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && submissions.length > 0 && (
-          <div className="submissions-grid">
-            {submissions.map(sub => (
-              <div
-                key={sub.id}
-                className="submission-card"
-                onClick={() => onSelect(sub.id)}
-                role="button"
-                tabIndex={0}
-                aria-label={`View ${sub.title}`}
-                onKeyDown={e => e.key === 'Enter' && onSelect(sub.id)}
-                id={`card-${sub.id}`}
-              >
-                <div className="submission-card-header">
-                  <div className="submission-card-title">{sub.title}</div>
-                  {categoryBadge(sub.category)}
-                </div>
-
-                <div className="submission-card-meta">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  {formatDate(sub.uploaded_at)}
-                </div>
-
-                <div className="submission-card-actions" onClick={e => e.stopPropagation()}>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => onSelect(sub.id)}
-                    id={`view-btn-${sub.id}`}
-                  >
-                    View Details
-                  </button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={e => handleDownload(e, sub.id, sub.title)}
-                    disabled={downloadingId === sub.id}
-                    id={`download-btn-${sub.id}`}
-                  >
-                    {downloadingId === sub.id
-                      ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Fetching…</>
-                      : '↓ Download'
-                    }
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
